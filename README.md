@@ -1,7 +1,6 @@
 - 👋 Hi, I’m @Adarsh Mishra
-- 👀 I’m interested in new skills
+- 👀 I’m interested in learning new skills
 - 🌱 I’m currently learning new skills in data analytics
-- 💞️ I’m looking to collaborate on ...
 - 📫 Reach me at adarshmishraoffi@rediffmail.com
 
 <!---
