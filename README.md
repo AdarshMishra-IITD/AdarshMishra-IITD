@@ -1,6 +1,6 @@
 - 👋 Hi, I’m @Adarsh Mishra
-- 👀 I’m interested in learning new skills
-- 🌱 I’m currently learning new skills in data analytics
+- 👀 Passionate about making a career in the field of Data Science and Operations Research
+- 🌱 As a fresher, always enthusiastic to learn, eager to accept new challenges and converting them into opportunities.
 - 📫 Reach me at adarshmishraoffi@rediffmail.com
 
 <!---
