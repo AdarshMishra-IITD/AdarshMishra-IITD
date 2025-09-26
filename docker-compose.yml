@@ -1,0 +1,33 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: playstore_db
+      POSTGRES_USER: playstore_user
+      POSTGRES_PASSWORD: playstore_pass
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    ports:
+      - "5432:5432"
+
+  web:
+    build: .
+    command: gunicorn project_config.wsgi:application --bind 0.0.0.0:8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    environment:
+      - DEBUG=1
+      - DJANGO_DB_HOST=db
+      - DJANGO_DB_PORT=5432
+      - DJANGO_DB_NAME=playstore_db
+      - DJANGO_DB_USER=playstore_user
+      - DJANGO_DB_PASSWORD=playstore_pass
+
+volumes:
+  postgres_data:

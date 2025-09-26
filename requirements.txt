@@ -1,3 +1,8 @@
+
 Django>=4.0
 python-dotenv
 django-environ
+psycopg2-binary
+gunicorn
+scikit-learn
+pandas
