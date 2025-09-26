@@ -34,7 +34,7 @@
             <h2 class="card-title">{{ app.name }}</h2>
             <p class="card-text"><b>Category:</b> {{ app.category }}</p>
             <p class="card-text"><b>Rating:</b> {{ app.rating }}</p>
-            <p class="card-text"><b>Reviews:</b> {{ app.reviews_count }}</p>
+            <p class="card-text"><b>Total Ratings:</b> {{ app.reviews_count }}</p>
             <a href="{% url 'add_review' app.id %}" class="btn btn-primary">Add Review</a>
         </div>
     </div>

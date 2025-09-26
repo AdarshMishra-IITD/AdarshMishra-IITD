@@ -2,8 +2,22 @@
 from django.db import models
 from django.contrib.auth.models import User
 
+"""Core data models for Play Store review application.
+
+Models:
+	App: Basic app catalog entry (denormalized from CSV).
+	Review: User (or imported) review with optional sentiment fields.
+	ReviewApproval: Supervisor approval audit record.
+	UserProfile: Extension flags for auth.User (e.g., supervisor role).
+"""
+
 class App(models.Model):
-	name = models.CharField(max_length=255)
+	"""Mobile application record.
+
+	Note: Many fields remain CharFields reflecting original CSV schema.
+	Future improvement could normalize installs (int), price (Decimal), etc.
+	"""
+	name = models.CharField(max_length=255, db_index=True)
 	category = models.CharField(max_length=100, blank=True, null=True)
 	rating = models.FloatField(blank=True, null=True)
 	reviews_count = models.CharField(max_length=20, blank=True, null=True)
@@ -17,7 +31,13 @@ class App(models.Model):
 	current_ver = models.CharField(max_length=50, blank=True, null=True)
 	android_ver = models.CharField(max_length=50, blank=True, null=True)
 
-	def __str__(self):
+	class Meta:
+		ordering = ["name"]
+		indexes = [
+			models.Index(fields=["name"], name="app_name_idx"),
+		]
+
+	def __str__(self):  # pragma: no cover - str repr
 		return self.name
 
 class Review(models.Model):
@@ -30,7 +50,7 @@ class Review(models.Model):
 	created_at = models.DateTimeField(auto_now_add=True)
 	approved = models.BooleanField(default=False)
 
-	def __str__(self):
+	def __str__(self):  # pragma: no cover
 		return f"{self.app.name} - {self.text[:30]}"
 
 class ReviewApproval(models.Model):
@@ -46,5 +66,5 @@ class UserProfile(models.Model):
 	user = models.OneToOneField(User, on_delete=models.CASCADE)
 	is_supervisor = models.BooleanField(default=False)
 
-	def __str__(self):
+	def __str__(self):  # pragma: no cover
 		return f"{self.user.username} (Supervisor: {self.is_supervisor})"

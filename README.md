@@ -1,46 +1,195 @@
 
-# AdarshMishra-IITD Django Project
+<div align="center">
 
-## About
+# Play Store Review & Sentiment Dashboard
 
-👋 Hi, I’m @Adarsh Mishra  
-👀 Results-driven Machine Learning Engineer with 2 years of experience delivering enterprise AI solutions. Specialized in Generative AI, Large Language Models, and production-ready ML systems. Proven track record of developing advanced RAG chatbots, multi-agent systems, and optimizing AI workflows.  
-🌱 Specialized in agentic AI, RAG, LLMs, NLP, and scalable ML systems. Enthusiastic about learning, solving new challenges, and building robust AI products.  
-📫 Reach me at adarshmishraiitd@gmail.com
+<em>Search, explore, and moderate Google Play Store app reviews with a lightweight Django + Postgres stack.</em>
 
-## Project Structure Enhancements
+<!-- Badges (placeholder examples) -->
+<!--
+[![Python](https://img.shields.io/badge/python-3.12-blue.svg)]()
+[![Status](https://img.shields.io/badge/status-active-success.svg)]()
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)]()
+-->
 
-- `static/` - For static files (CSS, JS, images)
-- `media/` - For user-uploaded files
-- `tests/` - For test modules
-- `scripts/` - For utility scripts
-- `docs/` - For documentation
-- `config/` - For configuration files (optional, for advanced settings)
-- `.env` - For environment variables
-- `requirements.txt` - For Python dependencies
+</div>
 
-## Setup
+## ✨ Features
 
-1. Install dependencies:
-	```sh
-	pip install -r requirements.txt
-	```
-2. Set up your `.env` file with the correct values.
-3. Run migrations:
-	```sh
-	python manage.py migrate
-	```
-4. Start the server:
-	```sh
-	python manage.py runserver
-	```
+- Fast fuzzy-ish search over app names (TF‑IDF + cosine similarity)
+- App detail view with sentiment distribution of approved reviews
+- User signup/login & role flag for supervisor moderation
+- Review submission → pending approval workflow
+- Idempotent CSV → DB import via custom management command
+- Dockerized runtime (Gunicorn + Postgres) OR pure local dev
+- Unified startup script (Docker `entrypoint.sh` supports dev & prod modes)
+- Extensible model ready for future NLP enrichment (embeddings, topics)
 
-## Contribution
+## 🧭 At a Glance
 
-- Add tests in the `tests/` directory.
-- Add scripts in the `scripts/` directory.
-- Add documentation in the `docs/` directory.
+| Concern | Choice |
+|---------|--------|
+| Framework | Django 5.x |
+| DB (default) | PostgreSQL (Docker) |
+| Alt local DB | SQLite (manual tweak) |
+| Frontend | Django templates |
+| Search | In-memory TF‑IDF per request |
+| Deployment style | Docker (Gunicorn) |
+
+## 📂 Project Layout
+
+```
+playstore/               # Main app: models, views, urls, mgmt command
+  management/commands/import_data.py
+project_config/          # Project settings / wsgi / asgi
+scripts/
+  clean_data.py          # Data cleaning helpers
+templates/               # UI templates
+docs/                    # Detailed documentation
+Dockerfile
+docker-compose.yml
+entrypoint.sh            # Container startup logic
+```
+
+More detail: `docs/code_overview.md`.
+
+## 🧱 Architecture Flow
+
+1. Raw CSVs in `playstore/migrations/csv_data/`
+2. Cleaning functions produce normalized `_clean.csv` files
+3. `import_data` loads Apps then Reviews (idempotent)
+4. Users search → TF‑IDF ranks names → select app → view details
+5. Auth users submit reviews (unapproved initially)
+6. Supervisor approves → review becomes visible / counted
+
+Extended breakdown: `docs/architecture.md` + data mapping: `docs/data_sources.md`.
+
+## 🚀 Getting Started
+
+### Option 1: Docker (Production style – Gunicorn)
+```sh
+docker compose up --build
+```
+Browse: http://localhost:8000
+
+Rebuild fresh:
+```sh
+docker compose down -v
+docker compose up --build
+```
+
+Exec a management command:
+```sh
+docker compose exec web python manage.py createsuperuser
+```
+
+### Option 2: Local Python Environment
+```sh
+pip install -r requirements.txt
+python run.py            # will migrate + import (if needed) + runserver
+```
+Customizations:
+```sh
+python run.py --port 9001
+NO_IMPORT=1 python run.py    # skip import check
+RUN_HOST=0.0.0.0 RUN_PORT=8080 python run.py
+```
+Traditional direct commands still work if you prefer:
+```sh
+python manage.py migrate
+python manage.py import_data
+python manage.py runserver
+```
+Visit: http://127.0.0.1:8000 (or chosen port)
+
+### Option 3: Docker Dev Mode (Runserver Inside Container)
+
+Two equivalent ways:
+
+1. Override compose file (recommended):
+```sh
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+```
+
+2. Environment variables inline:
+```sh
+APP_MODE=dev docker compose up --build
+```
+
+Because of the auto-detect added to `entrypoint.sh`, if `APP_MODE` is unset but `DEBUG=1`, the container will also default to dev mode.
+
+Customizations:
+```sh
+DEV_PORT=9001 docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+NO_IMPORT=1 docker compose -f docker-compose.yml -f docker-compose.dev.yml up   # skip data import
+```
+
+Browse: http://localhost:8000 (or your chosen `DEV_PORT`).
+
+## 🗄️ Data Pipeline
+
+| Stage | Tool/File | Notes |
+|-------|-----------|-------|
+| Raw ingest | `csv_data/*.csv` | Bundled demo data |
+| Clean | `scripts/clean_data.py` | Normalizes values |
+| Import | `manage.py import_data` | Idempotent load |
+| Persist | Postgres / SQLite | ORM access |
+| Present | Django views/templates | Search / detail / moderation |
+
+## 🔐 Configuration
+
+Environment variables (Docker or local shell):
+```
+DJANGO_DB_HOST, DJANGO_DB_PORT, DJANGO_DB_NAME,
+DJANGO_DB_USER, DJANGO_DB_PASSWORD,
+DEBUG, GUNICORN_WORKERS, GUNICORN_TIMEOUT
+```
+Add a `.env` for convenience (not committed). Local SQLite experimentation can be enabled by adjusting `DATABASES` in `project_config/settings.py`.
+
+## 🧪 Testing (Deferred)
+
+No automated tests yet while core flows stabilize. Planned initial suite: models, search, review submission & approval, data import. A `tests/` package + CI (GitHub Actions) will be introduced later.
+
+## 🧭 Common Commands
+
+| Command | Purpose |
+|---------|---------|
+| `python manage.py migrate` | Apply migrations |
+| `python manage.py import_data` | Load cleaned data (skips if present) |
+| `python manage.py createsuperuser` | Admin user |
+| `python run.py` | Local dev: migrate → import (if needed) → runserver |
+| `APP_MODE=dev docker compose up` | Docker dev: migrate → import → runserver |
+| `docker compose up --build` | Full Docker stack |
+
+## 👥 Contributing
+
+See `CONTRIBUTING.md` for workflow & guidelines (testing section future‑dated). PRs welcome for: pagination, better search, improved data normalization, or an embeddings prototype.
+
+## 🛠️ Roadmap (Excerpt)
+
+- Semantic embeddings search (SentenceTransformers)
+- Pagination & filtering (category, rating range)
+- Real-time sentiment for new reviews
+- Supervisor analytics dashboard
+- Test suite + CI pipeline
+
+## 📖 Further Reading
+
+- `docs/how_to_run.md` – Detailed run modes (Docker vs local)
+- `docs/architecture.md` – Architecture & extension points
+- `docs/data_sources.md` – Dataset lineage & field mappings
+- `docs/code_overview.md` – File-by-file explanations
+
+## 📄 License
+
+Add a license file (e.g. MIT) if external reuse is intended.
+
+## 🙋 Author
+
+Adarsh Mishra  
+📧 adarshmishraiitd@gmail.com  
+Focus: Generative AI · RAG · LLM Ops · Agent systems
 
 ---
 
-For more details, see the Django documentation: https://docs.djangoproject.com/
+Questions? Open an issue or start a discussion. Happy hacking! 🚀

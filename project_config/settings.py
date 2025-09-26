@@ -11,6 +11,14 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
+import os
+
+# Optional .env loading (python-dotenv or django-environ); prefer lightweight
+try:  # pragma: no cover - safe optional import
+    from dotenv import load_dotenv  # type: ignore
+    load_dotenv()
+except Exception:  # noqa: BLE001
+    pass
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,12 +28,29 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-2wmze&#*5e(*@a$1ok+nif%t&g7=bf9sqwelkyt5r_f&nf1)8v'
+# Fallback only if DEBUG evaluating true; raise if missing in production.
+SECRET_KEY = os.environ.get('SECRET_KEY')
+
+# DEBUG evaluation happens below; we need temporary read for guard
+_raw_debug = os.environ.get('DEBUG', '0')
+DEBUG = _raw_debug in {'1', 'true', 'True', 'yes'}
+if not SECRET_KEY:
+    if DEBUG:
+        # Dev convenience (non-deterministic each run could be chosen, but static for migrations ok)
+        SECRET_KEY = 'dev-insecure-placeholder-key-change-me'
+    else:  # Production safety
+        raise RuntimeError('SECRET_KEY environment variable must be set in production.')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+## DEBUG already computed above
 
-ALLOWED_HOSTS = []
+# Allow overriding via env; provide sensible defaults for local/dev & docker
+_raw_allowed = os.environ.get('ALLOWED_HOSTS', '')
+if _raw_allowed.strip():
+    ALLOWED_HOSTS = [h.strip() for h in _raw_allowed.split(',') if h.strip()]
+else:
+    # Defaults cover localhost access, docker service name, and typical loopback forms
+    ALLOWED_HOSTS = ["localhost", "127.0.0.1", "0.0.0.0", "web"]
 
 
 # Application definition
@@ -72,18 +97,37 @@ WSGI_APPLICATION = 'project_config.wsgi.application'
 
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-import os
+#
+# By default we target Postgres (best for production). For quick local hacking
+# without a running Postgres instance, export DJANGO_DB_BACKEND=sqlite and the
+# project will transparently use the existing db.sqlite3 file in the repo root.
+#
+# Environment variables (Postgres path):
+#   DJANGO_DB_BACKEND = postgres | sqlite (default: postgres)
+#   DJANGO_DB_NAME, DJANGO_DB_USER, DJANGO_DB_PASSWORD, DJANGO_DB_HOST, DJANGO_DB_PORT
+#
+DB_BACKEND = os.environ.get('DJANGO_DB_BACKEND', 'postgres').lower()
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DJANGO_DB_NAME', 'playstore_db'),
-        'USER': os.environ.get('DJANGO_DB_USER', 'playstore_user'),
-        'PASSWORD': os.environ.get('DJANGO_DB_PASSWORD', 'playstore_pass'),
-        'HOST': os.environ.get('DJANGO_DB_HOST', 'localhost'),
-        'PORT': os.environ.get('DJANGO_DB_PORT', '5432'),
+if DB_BACKEND == 'sqlite':
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
+else:
+    # Postgres configuration (default)
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('DJANGO_DB_NAME', 'playstore_db'),
+            'USER': os.environ.get('DJANGO_DB_USER', 'playstore_user'),
+            'PASSWORD': os.environ.get('DJANGO_DB_PASSWORD', 'playstore_pass'),
+            'HOST': os.environ.get('DJANGO_DB_HOST', 'localhost'),
+            'PORT': os.environ.get('DJANGO_DB_PORT', '5432'),
+        }
+    }
+
 
 
 # Password validation
@@ -121,8 +165,39 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Basic logging configuration (console focused)
+LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO')
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'standard': {
+            'format': '[{levelname}] {asctime} {name}: {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'standard',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': LOG_LEVEL,
+    },
+    'loggers': {
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': True,
+        },
+    },
+}

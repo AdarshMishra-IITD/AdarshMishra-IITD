@@ -12,6 +12,10 @@ class Command(BaseCommand):
     help = 'Load apps and reviews from CSV files'
 
     def handle(self, *args, **kwargs):
+        # If data already exists, skip to keep command idempotent
+        if App.objects.exists():
+            self.stdout.write(self.style.WARNING('Apps already present; skipping import.'))
+            return
         # Clean data before loading
         base = 'playstore/migrations/csv_data/'
         clean_googleplaystore(base + 'googleplaystore.csv', base + 'googleplaystore_clean.csv')

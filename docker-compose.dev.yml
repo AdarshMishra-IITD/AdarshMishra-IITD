@@ -1,0 +1,23 @@
+version: '3.9'
+
+# Development override: runs Django runserver (auto-reload) instead of Gunicorn
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
+# Or shorthand if your Docker version supports multiple defaults.
+# Exposes DEV_PORT (default 8000) but you can override with environment.
+
+services:
+  web:
+    environment:
+      - APP_MODE=dev
+      - DEV_HOST=0.0.0.0
+      - DEV_PORT=8000
+      - DEBUG=1
+      # You can optionally skip import on repeated restarts:
+      # - NO_IMPORT=1
+    # Mount code for live reload (already in base compose) but ensure no caching issues
+    volumes:
+      - .:/app
+    # Optionally publish a different port externally
+    ports:
+      - "8000:8000"

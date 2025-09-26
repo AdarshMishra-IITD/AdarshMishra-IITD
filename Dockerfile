@@ -7,12 +7,16 @@ ENV PYTHONUNBUFFERED 1
 WORKDIR /app
 
 COPY requirements.txt ./
-RUN pip install --upgrade pip && pip install -r requirements.txt
+RUN apt-get update && apt-get install -y --no-install-recommends netcat-openbsd \
+	&& rm -rf /var/lib/apt/lists/* \
+	&& pip install --upgrade pip && pip install -r requirements.txt
 
 COPY . .
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 # Collect static files (if any)
 RUN mkdir -p /app/static
 RUN python manage.py collectstatic --noinput || true
 
-CMD ["gunicorn", "project_config.wsgi:application", "--bind", "0.0.0.0:8000"]
+ENTRYPOINT ["/entrypoint.sh"]

@@ -14,7 +14,6 @@ services:
 
   web:
     build: .
-    command: gunicorn project_config.wsgi:application --bind 0.0.0.0:8000
     volumes:
       - .:/app
     ports:
@@ -28,6 +27,8 @@ services:
       - DJANGO_DB_NAME=playstore_db
       - DJANGO_DB_USER=playstore_user
       - DJANGO_DB_PASSWORD=playstore_pass
+      - GUNICORN_WORKERS=3
+      - GUNICORN_TIMEOUT=120
 
 volumes:
   postgres_data:

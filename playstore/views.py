@@ -4,7 +4,6 @@ from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from .models import App, Review, ReviewApproval, UserProfile
 from django.contrib.auth.models import User
-from django.db.models import Q
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from django import forms
@@ -49,32 +48,56 @@ def profile(request):
 	profile = UserProfile.objects.get(user=request.user)
 	return render(request, 'registration/profile.html', {'profile': profile})
 
+_SEARCH_CACHE = {
+	'version': 0,  # bump if logic changes
+	'app_count': 0,
+	'vectorizer': None,
+	'matrix': None,
+	'app_ids': [],
+}
+
+def _build_search_cache():  # pragma: no cover - simple helper
+	apps = list(App.objects.all().only('id', 'name'))
+	names = [a.name for a in apps]
+	if not names:
+		_SEARCH_CACHE.update({'app_count': 0, 'vectorizer': None, 'matrix': None, 'app_ids': []})
+		return
+	vectorizer = TfidfVectorizer()
+	matrix = vectorizer.fit_transform(names)
+	_SEARCH_CACHE.update({
+		'app_count': len(apps),
+		'vectorizer': vectorizer,
+		'matrix': matrix,
+		'app_ids': [a.id for a in apps],
+	})
+
 def search(request):
-	query = request.GET.get('q', '')
+	query = request.GET.get('q', '').strip()
 	results = []
 	if query:
-		apps = App.objects.all()
-		names = [app.name for app in apps]
-		if names:
-			vectorizer = TfidfVectorizer()
-			tfidf_matrix = vectorizer.fit_transform(names)
-			query_vec = vectorizer.transform([query])
-			similarities = cosine_similarity(query_vec, tfidf_matrix).flatten()
-			top_indices = similarities.argsort()[-10:][::-1]
-			results = [apps[int(i)] for i in top_indices if similarities[i] > 0.1]
-		else:
-			results = []
+		# Refresh cache if app count changed (cheap heuristic)
+		current_count = App.objects.count()
+		if _SEARCH_CACHE['vectorizer'] is None or _SEARCH_CACHE['app_count'] != current_count:
+			_build_search_cache()
+		vec = _SEARCH_CACHE['vectorizer']
+		mat = _SEARCH_CACHE['matrix']
+		if vec is not None and mat is not None:
+			query_vec = vec.transform([query])
+			similarities = cosine_similarity(query_vec, mat).flatten()
+			# Get top 10 with similarity threshold
+			indices = similarities.argsort()[-10:][::-1]
+			app_id_list = []
+			for i in indices:
+				if similarities[i] > 0.1:
+					app_id_list.append(_SEARCH_CACHE['app_ids'][int(i)])
+			results = list(App.objects.filter(id__in=app_id_list)) if app_id_list else []
 	return render(request, 'search.html', {'results': results, 'query': query})
 
 def autocomplete(request):
-	import logging
-	logger = logging.getLogger(__name__)
-	term = request.GET.get('term', '')
-	suggestions = []
-	logger.info(f"Autocomplete called with term: '{term}'")
-	if len(term) >= 3:
-		suggestions = list(App.objects.filter(name__icontains=term).values_list('name', flat=True)[:10])
-	logger.info(f"Suggestions returned: {suggestions}")
+	term = request.GET.get('term', '').strip()
+	if len(term) < 3:
+		return JsonResponse([], safe=False)
+	suggestions = list(App.objects.filter(name__icontains=term).values_list('name', flat=True)[:10])
 	return JsonResponse(suggestions, safe=False)
 
 def app_detail(request, app_id):
