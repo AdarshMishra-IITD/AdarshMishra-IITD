@@ -1,0 +1,15 @@
+{% extends 'search.html' %}
+{% block content %}
+<div class="container mt-4" style="max-width:500px;">
+    <h2>Profile</h2>
+    <ul class="list-group mb-3">
+        <li class="list-group-item"><b>Username:</b> {{ request.user.username }}</li>
+        <li class="list-group-item"><b>Email:</b> {{ request.user.email }}</li>
+        <li class="list-group-item"><b>Supervisor:</b> {{ profile.is_supervisor|yesno:"Yes,No" }}</li>
+    </ul>
+    <form method="post" action="/accounts/logout/">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">Logout</button>
+    </form>
+</div>
+{% endblock %}
